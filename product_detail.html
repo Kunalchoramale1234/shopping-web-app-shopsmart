@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShopSmart | Product Detail</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      background-color: #121212;
+      color: #eee;
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .navbar {
+      display: flex;
+      align-items: center;
+      padding: 0 2rem;
+      height: 60px;
+      background-color: #1e1e1e;
+      box-shadow: 0 2px 8px rgba(255,145,0,0.15);
+    }
+    .logo { font-weight: 700; font-size: 1.5rem; color: #ff9100; flex: 1; }
+    .search-bar input {
+      padding: 0.5rem 1rem;
+      border-radius: 25px;
+      border: none;
+      width: 300px;
+      max-width: 100%;
+      font-size: 1rem;
+      background-color: #2b2b2b;
+      color: #eee;
+    }
+    .search-bar input::placeholder { color: #bbb; }
+    .nav-links a {
+      color: #eee;
+      margin-left: 2rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+    .nav-links a:hover { color: #ffb347; }
+
+    .product-container {
+      max-width: 1100px;
+      margin: 3rem auto 4rem;
+      display: flex;
+      gap: 2rem;
+      background-color: #1e1e1e;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(255, 145, 0, 0.2);
+      flex-grow: 1;
+    }
+
+    /* Thumbnails */
+    .thumbnails {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .thumbnails img {
+      width: 70px;
+      height: 70px;
+      object-fit: contain;
+      cursor: pointer;
+      border: 2px solid #333;
+      border-radius: 6px;
+      transition: border 0.2s;
+    }
+    .thumbnails img:hover { border: 2px solid #ff9100; }
+
+    /* Main Image */
+    .product-image-container {
+      flex: 1;
+      min-width: 400px;
+      max-width: 500px;
+      height: 500px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+    .product-image-container img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      transition: transform 0.2s ease-in-out;
+    }
+
+    /* Details */
+    .product-details {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .product-title { font-size: 2rem; font-weight: 700; margin-bottom: 1rem; color: #ff9100; }
+    .product-price { font-size: 1.5rem; color: #ff9100; margin-bottom: 1rem; }
+    .product-description { line-height: 1.6; color: #bbb; margin-bottom: 2rem; flex-grow: 1; }
+    .add-to-cart-btn {
+      padding: 12px 24px;
+      background-color: #ff9100;
+      color: #000;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      align-self: flex-start;
+    }
+    .add-to-cart-btn:hover { background-color: #ffa726; }
+
+    footer.footer {
+      text-align: center;
+      padding: 1rem 0;
+      background-color: #1e1e1e;
+      color: #888;
+      font-size: 0.9rem;
+      margin-top: auto;
+    }
+
+    @media (max-width: 768px) {
+      .product-container { flex-direction: column; margin: 2rem 1rem 3rem; }
+      .thumbnails { flex-direction: row; margin-bottom: 10px; }
+      .product-image-container { width: 100%; height: auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="navbar">
+    <div class="logo">ShopSmart</div>
+    <div class="search-bar">
+      <input type="text" placeholder="Search for products..." />
+    </div>
+    <nav class="nav-links">
+      <a href="{{ url_for('home') }}">Home</a>
+      <a href="{{ url_for('cart') }}">Cart</a>
+      <a href="{{ url_for('profile') }}">Profile</a>
+    </nav>
+  </header>
+
+  <section class="product-container">
+    
+<!-- Thumbnails -->
+<div class="thumbnails">
+  {% if images and images|length > 0 %}
+    {% for img in images %}
+      <img src="{{ url_for('static', filename='images/products/' + img) }}"
+           onclick="document.getElementById('main-image').src=this.src"
+           alt="{{ product.name }}">
+    {% endfor %}
+  {% else %}
+    <img src="{{ url_for('static', filename='images/products/default.png') }}" alt="{{ product.name }}">
+  {% endif %}
+</div>
+
+<!-- Main Image -->
+<div class="product-image-container">
+  {% if images and images|length > 0 %}
+    <img id="main-image" src="{{ url_for('static', filename='images/products/' + images[0]) }}" alt="{{ product.name }}">
+  {% else %}
+    <img id="main-image" src="{{ url_for('static', filename='images/products/default.png') }}" alt="{{ product.name }}">
+  {% endif %}
+</div>
+
+    <!-- Product Details -->
+    <div class="product-details">
+      <h1 class="product-title">{{ product.name }}</h1>
+      <p class="product-price">£{{ product.price }}</p>
+      <p class="product-description">{{ product.description }}</p>
+
+      <form method="POST" action="{{ url_for('add_to_cart', product_id=product.id) }}">
+        <label for="quantity">Quantity:</label>
+        <input type="number" name="quantity" id="quantity" value="1" min="1">
+        <button type="submit" class="add-to-cart-btn">Add to Cart</button>
+      </form>
+    </div>
+
+  </section>
+
+  <footer class="footer">
+    &copy; 2025 ShopSmart. All rights reserved.
+  </footer>
+
+  <script>
+    // Zoom effect
+    const mainImage = document.getElementById("main-image");
+    mainImage.addEventListener("mousemove", function(e) {
+      const { left, top, width, height } = this.getBoundingClientRect();
+      const x = ((e.pageX - left) / width) * 100;
+      const y = ((e.pageY - top) / height) * 100;
+      this.style.transformOrigin = `${x}% ${y}%`;
+      this.style.transform = "scale(2)";
+    });
+    mainImage.addEventListener("mouseleave", function() {
+      this.style.transformOrigin = "center center";
+      this.style.transform = "scale(1)";
+    });
+  </script>
+
+</body>
+</html>

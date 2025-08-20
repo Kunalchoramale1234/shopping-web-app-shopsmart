@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShopSmart | Register</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      background-color: #121212;
+      color: #eee;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      margin: 0;
+      justify-content: center;
+      align-items: center;
+    }
+    .navbar {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      background-color: #1e1e1e;
+      display: flex;
+      align-items: center;
+      padding: 0 2rem;
+      height: 60px;
+      box-shadow: 0 2px 8px rgba(255,145,0,0.15);
+      z-index: 100;
+    }
+    .logo {
+      font-weight: 700;
+      font-size: 1.5rem;
+      color: #ff9100;
+      flex: 1;
+    }
+    .nav-links a {
+      color: #eee;
+      margin-left: 2rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+    .nav-links a:hover {
+      color: #ffb347;
+    }
+    .register-container {
+      background-color: #1e1e1e;
+      padding: 3rem 2rem;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(255, 145, 0, 0.15);
+      width: 100%;
+      max-width: 400px;
+      margin-top: 80px;
+    }
+    .register-title {
+      font-size: 1.8rem;
+      color: #fff;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 1rem;
+      border: none;
+      border-radius: 8px;
+      background-color: #2b2b2b;
+      color: #fff;
+      font-size: 1rem;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #ff9100;
+      color: #000;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    button:hover {
+      background-color: #ffa726;
+    }
+    .login-link {
+      margin-top: 1rem;
+      color: #bbb;
+      text-align: center;
+    }
+    .login-link a {
+      color: #ff9100;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="navbar">
+    <div class="logo">ShopSmart</div>
+    <nav class="nav-links">
+      <a href="login.html">Login</a>
+    </nav>
+  </header>
+
+  <div class="register-container">
+    <div class="register-title">Create Your Account</div>
+    <form action="/register" method="POST">
+      <input type="text" name="name" placeholder="Full Name" required />
+      <label for="mobile">Mobile Number</label>
+      <input type="tel" name="mobile" id="mobile" required>
+      <input type="email" name="email" placeholder="Email address" required />
+      <input type="password" name="password" placeholder="Password" required />
+      <input type="password" name="confirm_password" placeholder="Confirm Password" required />
+      <button type="submit">Register</button>
+      <div class="login-link">
+        Already have an account? <a href="login.html">Login</a>
+      </div>
+    </form>
+  </div>
+
+</body>
+</html>
+

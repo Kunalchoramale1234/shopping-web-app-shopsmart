@@ -1,0 +1,25 @@
+<!-- templates/product-list.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>All Products</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+  <h1>Product List</h1>
+  <div class="product-grid">
+    {% for product in products %}
+      <div class="product-card">
+        <img src="{{ product[4] }}" alt="{{ product[1] }}" />
+        <h3>{{ product[1] }}</h3>
+        <p>{{ product[2] }}</p>
+        <p>Price: ${{ product[3] }}</p>
+        <a href="/product/{{ product[0] }}">View</a>
+      </div>
+    {% endfor %}
+  </div>
+</body>
+</html>
+
+

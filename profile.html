@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShopSmart | Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      background-color: #121212;
+      color: #eee;
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .navbar {
+      display: flex;
+      align-items: center;
+      padding: 0 2rem;
+      height: 60px;
+      background-color: #1e1e1e;
+      box-shadow: 0 2px 8px rgba(255,145,0,0.15);
+    }
+    .logo {
+      font-weight: 700;
+      font-size: 1.5rem;
+      color: #ff9100;
+      flex: 1;
+    }
+    .nav-links a {
+      color: #eee;
+      margin-left: 2rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+    .nav-links a:hover {
+      color: #ffb347;
+    }
+    main {
+      flex-grow: 1;
+      padding: 2rem;
+      max-width: 600px;
+      margin: auto;
+    }
+    h1 {
+      color: #ff9100;
+      margin-bottom: 1rem;
+    }
+    .profile-info {
+      background-color: #1e1e1e;
+      padding: 1.5rem;
+      border-radius: 15px;
+      box-shadow: 0 0 15px rgba(255,145,0,0.1);
+    }
+    .profile-info p {
+      margin: 0.5rem 0;
+      font-size: 1.1rem;
+    }
+    .logout-btn {
+      margin-top: 2rem;
+      padding: 0.7rem 1.5rem;
+      background-color: #ff9100;
+      color: #000;
+      border: none;
+      border-radius: 25px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .logout-btn:hover {
+      background-color: #ffb347;
+    }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <div class="logo">ShopSmart</div>
+    <nav class="nav-links">
+      <a href="{{ url_for('home') }}">Home</a>
+      <a href="{{ url_for('cart') }}">Cart</a>
+      <a href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+  </header>
+
+  <main>
+    <h1>Welcome, {{ user.name }}!</h1>
+    <section class="profile-info">
+      <p><strong>Name:</strong> {{ user.name }}</p>
+      <p><strong>Email:</strong> {{ user.email }}</p>
+    </section>
+
+    <form action="{{ url_for('logout') }}" method="get">
+      <button type="submit" class="logout-btn">Logout</button>
+    </form>
+  </main>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShopSmart | Payment Success</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: #121212;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .success-container {
+      background-color: #1e1e1e;
+      padding: 3rem 2rem;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
+      max-width: 500px;
+      width: 90%;
+      animation: fadeIn 0.8s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      0% { opacity: 0; transform: scale(0.9); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .checkmark {
+      font-size: 5rem;
+      color: #4caf50; /* green tick */
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      color: #4caf50;
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    p {
+      color: #ccc;
+      font-size: 1.1rem;
+      margin-bottom: 2rem;
+    }
+
+    .btn-home {
+      display: inline-block;
+      padding: 12px 25px;
+      background-color: #ff9100;
+      color: #000;
+      font-weight: 700;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background-color 0.3s;
+    }
+
+    .btn-home:hover {
+      background-color: #ffb347;
+    }
+  </style>
+</head>
+<body>
+  <div class="success-container">
+    <div class="checkmark">✔</div>
+    <h1>Payment Successful!</h1>
+    <p>Your order has been placed successfully. Thank you for shopping with ShopSmart.</p>
+    <a href="{{ url_for('home') }}" class="btn-home">Back to Home</a>
+  </div>
+</body>
+</html>

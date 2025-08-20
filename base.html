@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}ShopSmart{% endblock %}</title>
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/searchbar.css') }}">
+  <style>
+    /* General Dark Theme */
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: #121212;
+      color: #eee;
+    }
+
+    /* Navbar */
+    nav {
+      background: #1f1f1f;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    nav .logo a {
+      text-decoration: none;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #00ff99;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      margin: 0;
+      padding: 0;
+    }
+
+    nav ul li {
+      margin-left: 20px;
+    }
+
+    nav ul li a {
+      text-decoration: none;
+      color: #eee;
+      font-weight: 500;
+    }
+
+    nav ul li a:hover {
+      color: #00ff99;
+    }
+
+    /* Search Bar */
+    .search-container {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      margin: 0 20px;
+    }
+
+    .search-container input {
+      width: 100%;
+      padding: 8px;
+      border-radius: 20px;
+      border: none;
+      outline: none;
+    }
+
+    .search-container button {
+      margin-left: 10px;
+      padding: 8px 15px;
+      border: none;
+      border-radius: 20px;
+      background: #00ff99;
+      color: #121212;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .search-container button:hover {
+      background: #00cc77;
+    }
+
+    /* Main content */
+    .container {
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+
+    /* Footer */
+    footer {
+      background: #1f1f1f;
+      text-align: center;
+      padding: 15px;
+      margin-top: 30px;
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav>
+    <div class="logo"><a href="{{ url_for('index') }}">ShopSmart</a></div>
+    <div class="search-container">
+      <form action="{{ url_for('search') }}" method="get" style="display:flex; width:100%;">
+        <input type="text" name="q" placeholder="Search for products..." required>
+        <button type="submit">Search</button>
+      </form>
+    </div>
+    <ul>
+      <li><a href="{{ url_for('cart') }}">Cart</a></li>
+      {% if 'user_id' in session %}
+        <li><a href="{{ url_for('profile') }}">Profile</a></li>
+        <li><a href="{{ url_for('logout') }}">Logout</a></li>
+      {% else %}
+        <li><a href="{{ url_for('login') }}">Login</a></li>
+        <li><a href="{{ url_for('register') }}">Register</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+
+  <!-- Page Content -->
+  <div class="container">
+    {% block content %}
+    {% endblock %}
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    &copy; {{ current_year }} ShopSmart. All rights reserved.
+  </footer>
+
+  <!-- JS -->
+  <script defer src="{{ url_for('static', filename='js/searchbar.js') }}"></script>
+</body>
+</html>
