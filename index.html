@@ -82,7 +82,7 @@
 
   <header class="navbar">
     <div class="logo">ShopSmart</div>
-    <form action="{{ url_for('home') }}" method="get" class="search-bar">
+    <form action="{{ url_for('search') }}" method="get" class="search-bar">
       <input type="text" name="q" placeholder="Search products..." value="{{ query or '' }}">
       <button type="submit">Search</button>
     </form>
@@ -109,8 +109,9 @@
       {% for product in products %}
         <div class="product-card">
           <a href="{{ url_for('product_detail', product_id=product.id) }}">
-            <img src="{{ url_for('static', filename='images/products/' ~ (product.main_image if product.main_image else 'default.png')) }}"
-                 alt="{{ product.name }}">
+           <img src="{{ url_for('static', filename='images/products/' ~ ((product.images | safe | fromjson)[0] if product.images else 'default.png')) }}"
+     alt="{{ product.name }}">
+
           </a>
           <a href="{{ url_for('product_detail', product_id=product.id) }}" style="color: #ff9100; text-decoration: none;">
             <h3>{{ product.name }}</h3>
