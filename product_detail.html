@@ -62,6 +62,7 @@
       flex-direction: column;
       gap: 10px;
       flex-shrink: 0;
+      overflow-x: auto;
     }
     .thumbnails img {
       width: 70px;
@@ -149,27 +150,30 @@
 
   <section class="product-container">
     
-<!-- Thumbnails -->
+  <!-- Thumbnails -->
 <div class="thumbnails">
-  {% if images and images|length > 0 %}
-    {% for img in images %}
-      <img src="{{ url_for('static', filename='images/products/' + img) }}"
-           onclick="document.getElementById('main-image').src=this.src"
-           alt="{{ product.name }}">
+  {% if product.images %}
+    {% set img_list = product.images | safe | fromjson %}
+    {% for img in img_list %}
+      <img src="{{ url_for('static', filename='images/products/' ~ img) }}" alt="Product Image">
     {% endfor %}
   {% else %}
-    <img src="{{ url_for('static', filename='images/products/default.png') }}" alt="{{ product.name }}">
+    <img src="{{ url_for('static', filename='images/products/default.png') }}" alt="Default">
   {% endif %}
 </div>
 
 <!-- Main Image -->
 <div class="product-image-container">
-  {% if images and images|length > 0 %}
-    <img id="main-image" src="{{ url_for('static', filename='images/products/' + images[0]) }}" alt="{{ product.name }}">
+  {% if product.images %}
+    {% set img_list = product.images | safe | fromjson %}
+    <img id="main-image" src="{{ url_for('static', filename='images/products/' ~ img_list[0]) }}" alt="{{ product.name }}">
   {% else %}
     <img id="main-image" src="{{ url_for('static', filename='images/products/default.png') }}" alt="{{ product.name }}">
   {% endif %}
 </div>
+
+
+
 
     <!-- Product Details -->
     <div class="product-details">
@@ -191,7 +195,7 @@
   </footer>
 
   <script>
-    // Zoom effect
+    // Zoom effect for main image
     const mainImage = document.getElementById("main-image");
     mainImage.addEventListener("mousemove", function(e) {
       const { left, top, width, height } = this.getBoundingClientRect();
