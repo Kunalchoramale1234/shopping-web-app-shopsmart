@@ -16,12 +16,45 @@ import os, json
 from werkzeug.utils import secure_filename
 import os
 from dotenv import load_dotenv
+import time
+import uuid
+import numpy as np
+from ml.semantic import SemanticIndex
+import json
+import os
+import uuid
+from flask import flash, request, redirect, url_for, render_template
+from datetime import datetime
+
+
+import mysql.connector
+
+
+
+
+
 
 
 load_dotenv()
 STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
 
 app = Flask(__name__)
+
+def get_db_connection():
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",          
+        password="Kunal$21",  
+        database="shopping_app"    
+    )
+
+
+
+# Build/load semantic index once (avoid double-load in reloader)
+if not hasattr(app, "semantic"):
+    app.semantic = SemanticIndex(get_db_connection)
+
+
 app.secret_key = 'your_secret_key'
 bcrypt = Bcrypt(app)
 app.debug = True
@@ -42,93 +75,32 @@ mail = Mail(app)
 def get_db_connection():
     return mysql.connector.connect(**db_config)
 
-@app.route("/")
+@app.template_filter('fromjson')
+def fromjson_filter(s):
+    try:
+        return json.loads(s)
+    except Exception:
+        return []
+    
+    
+@app.route('/')
 def home():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-
-    # Get products
-    cursor.execute("SELECT * FROM products ORDER BY id DESC")
+    cursor.execute("SELECT * FROM products")
     products = cursor.fetchall()
-
-    # Attach the first image from product_images table
-    for product in products:
-        cursor.execute("SELECT image_filename FROM product_images WHERE product_id = %s LIMIT 1", (product['id'],))
-        row = cursor.fetchone()
-        product['main_image'] = row['image_filename'] if row else 'default.png'
-
     conn.close()
+
+    # Parse images JSON into Python list + set main_image
+    for product in products:
+        try:
+            images = json.loads(product['images']) if product['images'] else []
+        except Exception:
+            images = []
+        product['main_image'] = images[0] if images else 'default.png'
+
     return render_template("user/index.html", products=products)
 
-
-
-
-def _like(s):
-    return f"%{s}%"
-
-def _prefix(s):
-    return f"{s}%"
-
-def _dictfetchall(cursor):
-    cols = [c[0] for c in cursor.description]
-    return [dict(zip(cols, row)) for row in cursor.fetchall()]
-
-@app.route('/api/search/suggest')
-def api_search_suggest():
-    q = (request.args.get('q') or '').strip()
-    if not q:
-        return jsonify({"suggestions": []})
-    conn = get_db_connection()
-    cur = conn.cursor()
-    # Top product name prefix matches, then contains matches
-    cur.execute("""
-        (SELECT name FROM products
-         WHERE name LIKE %s
-         ORDER BY name ASC
-         LIMIT 6)
-        UNION
-        (SELECT name FROM products
-         WHERE name LIKE %s
-         ORDER BY name ASC
-         LIMIT 6)
-    """, (_prefix(q), _like(q)))
-    names = [row[0] for row in cur.fetchall()]
-    # Popular prior queries starting with the prefix
-    try:
-        cur.execute("""
-            SELECT term FROM search_logs
-            WHERE term LIKE %s
-            ORDER BY `count` DESC, last_searched DESC
-            LIMIT 6
-        """, (_prefix(q),))
-        popular = [row[0] for row in cur.fetchall()]
-    except Exception:
-        popular = []
-    cur.close(); conn.close()
-    # Build suggestion objects (can include URL per item if you have a product detail route)
-    suggestions = [{"text": n} for n in names]
-    # Merge popular terms that aren't already in names
-    for p in popular:
-        if p not in names:
-            suggestions.append({"text": p})
-    return jsonify({"suggestions": suggestions[:10]})
-
-@app.route('/api/search/trending')
-def api_search_trending():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute("""
-            SELECT term FROM search_logs
-            ORDER BY `count` DESC, last_searched DESC
-            LIMIT 10
-        """)
-        trending = [row[0] for row in cur.fetchall()]
-    except Exception:
-        trending = []
-    finally:
-        cur.close(); conn.close()
-    return jsonify({"trending": trending})
 
 @app.route('/search')
 def search():
@@ -138,73 +110,77 @@ def search():
     offset = (page - 1) * per_page
 
     conn = get_db_connection()
-    cur = conn.cursor()
+    cur = conn.cursor(dictionary=True)
 
-    # Try FULLTEXT (if you added it). If it errors, fall back to LIKE scoring.
-    rows = []
+    products = []
     total = 0
-    used_fulltext = False
-    try:
-        # Score by relevance
-        cur.execute(f"""
-            SELECT SQL_CALC_FOUND_ROWS
-                   id, name, description, price, image_url,
-                   MATCH(name, description) AGAINST (%s IN NATURAL LANGUAGE MODE) AS score
-            FROM products
-            WHERE MATCH(name, description) AGAINST (%s IN NATURAL LANGUAGE MODE)
-            ORDER BY score DESC
-            LIMIT %s OFFSET %s
-        """, (q, q, per_page, offset))
-        cols = [c[0] for c in cur.description]
-        rows = [dict(zip(cols, r)) for r in cur.fetchall()]
-        cur.execute("SELECT FOUND_ROWS()")
-        total = cur.fetchone()[0]
-        used_fulltext = True
-    except Exception:
-        # Fallback: LIKE + simple weighted score
-        cur.close(); cur = conn.cursor()
-        cur.execute(f"""
-            SELECT id, name, description, price, image_url,
-                   (CASE WHEN name LIKE %s THEN 100 ELSE 0 END) +
-                   (CASE WHEN name LIKE %s THEN 50 ELSE 0 END) +
-                   (CASE WHEN description LIKE %s THEN 10 ELSE 0 END) AS score
+    used_semantic = False
+
+    if q:
+        # 1) Try semantic search
+        try:
+            hits = app.semantic.search(q, topk=200)  # grab more, paginate in SQL
+            if hits:
+                used_semantic = True
+                id_order = [pid for pid, _ in hits]
+                # paginate ids manually
+                page_ids = id_order[offset: offset + per_page]
+                if page_ids:
+                    placeholders = ",".join(["%s"] * len(page_ids))
+                    cur.execute(f"""
+                        SELECT id, name, description, price, images
+                        FROM products
+                        WHERE id IN ({placeholders})
+                    """, tuple(page_ids))
+                    rows = cur.fetchall()
+                    # keep original semantic order
+                    order = {pid: i for i, pid in enumerate(page_ids)}
+                    rows.sort(key=lambda r: order.get(r['id'], 999999))
+                    # set image
+                    for r in rows:
+                        try:
+                            imgs = json.loads(r.get('images') or '[]')
+                        except Exception:
+                            imgs = []
+                        r['image_url'] = f"/static/images/products/{imgs[0]}" if imgs else "/static/images/products/default.png"
+                    products = rows
+                    total = len(id_order)
+        except Exception:
+            used_semantic = False
+
+    if not used_semantic:
+        # 2) Fallback to your existing LIKE/FULLTEXT flow (kept simple here)
+        q_like = f"%{q}%"
+        cur.execute("""
+            SELECT SQL_CALC_FOUND_ROWS id, name, description, price, images
             FROM products
             WHERE name LIKE %s OR description LIKE %s
-            ORDER BY score DESC, name ASC
+            ORDER BY name ASC
             LIMIT %s OFFSET %s
-        """, (_prefix(q), _like(q), _like(q), _like(q), _like(q), per_page, offset))
-        rows = _dictfetchall(cur)
-        # Approx total
-        cur2 = conn.cursor()
-        cur2.execute("SELECT COUNT(*) FROM products WHERE name LIKE %s OR description LIKE %s", (_like(q), _like(q)))
-        total = cur2.fetchone()[0]
-        cur2.close()
-
-    # Log the query for trending
-    try:
-        cur2 = conn.cursor()
-        cur2.execute("""
-            INSERT INTO search_logs(term, `count`) VALUES (%s, 1)
-            ON DUPLICATE KEY UPDATE `count` = `count` + 1, last_searched = CURRENT_TIMESTAMP
-        """, (q,))
-        conn.commit()
-        cur2.close()
-    except Exception:
-        pass
+        """, (q_like, q_like, per_page, offset))
+        rows = cur.fetchall()
+        cur.execute("SELECT FOUND_ROWS()")
+        total = cur.fetchone()['FOUND_ROWS()'] if isinstance(cur.fetchone(), dict) else total
+        # images
+        for r in rows:
+            try:
+                imgs = json.loads(r.get('images') or '[]')
+            except Exception:
+                imgs = []
+            r['image_url'] = f"/static/images/products/{imgs[0]}" if imgs else "/static/images/products/default.png"
+        products = rows
 
     cur.close(); conn.close()
+    pages = max(1, (total + per_page - 1) // per_page)
 
-    pages = max(1, ceil(total / per_page))
-
-    # Render your search template; if you already have one, keep it.
-    # We'll pass: products, q, page, pages, total, used_fulltext
     return render_template('user/search.html',
-                       products=rows,
-                       query=q,
-                       page=page,
-                       pages=pages,
-                       total=total,
-                       used_fulltext=used_fulltext)
+                           products=products,
+                           query=q,
+                           page=page,
+                           pages=pages,
+                           total=total,
+                           used_fulltext=not used_semantic,
+                           used_semantic=used_semantic)
 
 
 
@@ -521,7 +497,6 @@ def forgot_password():
     return render_template('user/forgot_password.html')
 
 
-
 @app.route('/verify-otp', methods=['GET', 'POST'])
 def verify_otp():
     if request.method == 'POST':
@@ -561,16 +536,43 @@ def product_detail(product_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # Get product details
+    # Product
     cursor.execute("SELECT * FROM products WHERE id = %s", (product_id,))
     product = cursor.fetchone()
 
-    # Get all images for this product from product_images table
+    # Images
     cursor.execute("SELECT image_filename FROM product_images WHERE product_id = %s", (product_id,))
     images = [row['image_filename'] for row in cursor.fetchall()]
 
+    # --- Similar products (content-based via BERT) ---
+    similar = []
+    try:
+        hits = app.semantic.similar_products(product_id, topk=8)  # [(id,score)]
+        if hits:
+            sim_ids = [pid for pid, _ in hits]
+            placeholders = ",".join(["%s"] * len(sim_ids))
+            cursor.execute(f"""
+                SELECT id, name, price, images
+                FROM products
+                WHERE id IN ({placeholders})
+            """, tuple(sim_ids))
+            rows = cursor.fetchall()
+            # preserve order
+            order = {pid: i for i, pid in enumerate(sim_ids)}
+            rows.sort(key=lambda r: order.get(r['id'], 999999))
+            for r in rows:
+                try:
+                    imgs = json.loads(r.get('images') or '[]')
+                except Exception:
+                    imgs = []
+                r['image_url'] = f"/static/images/products/{imgs[0]}" if imgs else "/static/images/products/default.png"
+            similar = rows
+    except Exception:
+        similar = []
+
     conn.close()
-    return render_template("user/product_detail.html", product=product, images=images)
+    return render_template("user/product_detail.html", product=product, images=images, similar_products=similar)
+
 
 
 
@@ -651,15 +653,19 @@ def admin_logout():
 
 
 
-
 # Add Product
 UPLOAD_FOLDER = 'static/images/products'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# This function must be defined BEFORE it is called in the route below.
 def allowed_file(filename):
+    """
+    Checks if a file's extension is in the list of allowed extensions.
+    """
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# Add Product
 @app.route('/admin/add-product', methods=['GET', 'POST'])
 def admin_add_product():
     if 'admin_id' not in session:
@@ -674,36 +680,35 @@ def admin_add_product():
 
         images_list = []
         if 'images' in request.files:
-            for file in request.files.getlist('images'):
+            files = request.files.getlist('images')
+            for file in files:
+                # The allowed_file() function is now correctly defined above.
                 if file and allowed_file(file.filename):
-                    filename = secure_filename(file.filename)
+                    # Use UUID to prevent filename conflicts
+                    filename = f"{uuid.uuid4().hex}_{secure_filename(file.filename)}"
                     save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                     file.save(save_path)
                     images_list.append(filename)
 
-        print("DEBUG - Uploaded images:", images_list)  # <-- check console
-
-        # Convert images list to JSON for products table
-        images_json = json.dumps(images_list)
+        # DEBUG
+        print("DEBUG - Uploaded images:", images_list)
 
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Insert into products table
+        # Insert into products
         cursor.execute(
-            "INSERT INTO products (name, price, description, stock, category, images) VALUES (%s,%s,%s,%s,%s,%s)",
-            (name, price, description, stock, category, images_json)
+            "INSERT INTO products (name, price, description, stock, category, images) VALUES (%s, %s, %s, %s, %s, %s)",
+            (name, price, description, stock, category, json.dumps(images_list))
         )
-        product_id = cursor.lastrowid  # get new product id
+        product_id = cursor.lastrowid
 
-        # Insert each image into product_images table
-        if images_list:
-            for img in images_list:
-                cursor.execute(
-                    "INSERT INTO product_images (product_id, image_path) VALUES (%s, %s)",
-                    (product_id, img)
-                )
-            print(f"DEBUG - Inserted {len(images_list)} images into product_images for product_id {product_id}")
+        # Insert into product_images
+        for img in images_list:
+            cursor.execute(
+                "INSERT INTO product_images (product_id, image_filename) VALUES (%s, %s)",
+                (product_id, img)
+            )
 
         conn.commit()
         conn.close()
@@ -716,55 +721,133 @@ def admin_add_product():
 
 
 
-
 # Edit Product
 @app.route('/admin/edit-product/<int:product_id>', methods=['GET', 'POST'])
 def admin_edit_product(product_id):
+    if 'admin_id' not in session:
+        return redirect(url_for('admin_login'))
+
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
     # Fetch product details
-    cursor.execute("SELECT * FROM products WHERE id = %s", (product_id,))
+    cursor.execute("SELECT * FROM products WHERE id=%s", (product_id,))
+    product = cursor.fetchone()
+    if not product:
+        conn.close()
+        flash("Product not found.", "error")
+        return redirect(url_for("admin_manage_products"))
+
+    # Fetch images from the product_images table for consistency
+    cursor.execute("SELECT image_filename FROM product_images WHERE product_id=%s", (product_id,))
+    images = [row['image_filename'] for row in cursor.fetchall()]
+
+    if request.method == "POST":
+        # Form data
+        name = request.form["name"]
+        price = request.form["price"]
+        description = request.form["description"]
+        stock = request.form["stock"]
+        category = request.form["category"]
+
+        # Handle new images
+        files = request.files.getlist("images")
+        new_images = []
+
+        for file in files:
+            if file and file.filename != "" and allowed_file(file.filename):
+                filename = f"{uuid.uuid4().hex}_{secure_filename(file.filename)}"
+                save_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+                file.save(save_path)
+                new_images.append(filename)
+
+        if new_images:
+            # 1️⃣ Delete old images from disk
+            for old_img in images:  # Use the 'images' list fetched from the database
+                old_path = os.path.join(app.config["UPLOAD_FOLDER"], old_img)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+
+            # 2️⃣ Update products table with new image URLs
+            images_json = json.dumps(new_images)
+            cursor.execute("""
+                UPDATE products
+                SET name=%s, price=%s, description=%s, stock=%s, category=%s, images=%s
+                WHERE id=%s
+            """, (name, price, description, stock, category, images_json, product_id))
+
+            # 3️⃣ Update product_images table
+            cursor.execute("DELETE FROM product_images WHERE product_id=%s", (product_id,))
+            for img in new_images:
+                cursor.execute(
+                    "INSERT INTO product_images (product_id, image_filename) VALUES (%s,%s)",
+                    (product_id, img)
+                )
+        else:
+            # No new images, keep old ones
+            cursor.execute("""
+                UPDATE products
+                SET name=%s, price=%s, description=%s, stock=%s, category=%s
+                WHERE id=%s
+            """, (name, price, description, stock, category, product_id))
+
+        conn.commit()
+        conn.close()
+        flash("Product updated successfully!", "success")
+        return redirect(url_for("admin_manage_products"))
+
+    # GET request: render edit form with product and its images
+    conn.close()
+    return render_template("admin/admin_edit_product.html", product=product, images=images)
+
+
+
+
+
+# Delete Product
+@app.route('/admin/delete-product/<int:product_id>', methods=['POST'])
+def admin_delete_product(product_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Fetch product to get current images
+    cursor.execute("SELECT * FROM products WHERE id=%s", (product_id,))
     product = cursor.fetchone()
 
     if not product:
         conn.close()
-        flash('Product not found.', 'error')
-        return redirect(url_for('admin_manage_products'))
+        flash("Product not found.", "error")
+        return redirect(url_for("admin_manage_products"))
 
-    if request.method == 'POST':
-        # Get form data
-        name = request.form['name']
-        price = request.form['price']
-        description = request.form['description']
-        stock = request.form['stock']
+    try:
+        # 1️⃣ Delete product images from disk
+        if product['images']:
+            old_images = json.loads(product['images'])
+            for img in old_images:
+                old_path = os.path.join(app.config['UPLOAD_FOLDER'], img)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
 
-        # Update product in DB
-        cursor.execute(
-            "UPDATE products SET name=%s, price=%s, description=%s, stock=%s WHERE id=%s",
-            (name, price, description, stock, product_id)
-        )
+        # 2️⃣ Delete related entries from product_images table
+        cursor.execute("DELETE FROM product_images WHERE product_id=%s", (product_id,))
+
+        # 3️⃣ Delete related entries from cart table
+        cursor.execute("DELETE FROM cart WHERE product_id=%s", (product_id,))
+
+        # 4️⃣ Finally, delete the product itself
+        cursor.execute("DELETE FROM products WHERE id=%s", (product_id,))
+        app.semantic.delete_product(product_id)
+
         conn.commit()
+        flash("Product deleted successfully!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Error deleting product: {str(e)}", "error")
+    finally:
         conn.close()
-        flash('Product updated successfully!', 'success')
-        return redirect(url_for('admin_manage_products'))
 
-    conn.close()
-    return render_template('admin/edit_product.html', product=product)
+    return redirect(url_for("admin_manage_products"))
 
-# Delete Product
-@app.route('/admin/delete-product/<int:product_id>', methods=['GET','POST'])
-def admin_delete_product(product_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # Delete product
-    cursor.execute("DELETE FROM products WHERE id = %s", (product_id,))
-    conn.commit()
-    conn.close()
-
-    flash('Product deleted successfully!', 'success')
-    return redirect(url_for('admin_manage_products'))
 
 
 
@@ -811,8 +894,6 @@ def admin_manage_orders():
     conn.close()
 
     return render_template('admin/manage_orders.html', orders=orders)
-
-
 
 
 
