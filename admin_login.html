@@ -1,0 +1,99 @@
+<!-- /templates/admin/admin_login.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login | Shopping App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            background: linear-gradient(135deg, #1e1e2f, #2c2c54);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+        }
+        .login-container {
+            background: #2a2a40;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 0 25px rgba(0,0,0,0.4);
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-container h2 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            color: #ffcc00;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        label {
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+        input {
+            width: 100%;
+            padding: 0.8rem;
+            margin-top: 0.4rem;
+            border: none;
+            border-radius: 8px;
+            background: #1f1f33;
+            color: white;
+            font-size: 1rem;
+        }
+        input:focus {
+            outline: none;
+            background: #252542;
+            border: 1px solid #ffcc00;
+        }
+        .btn {
+            background: #ffcc00;
+            color: #1e1e2f;
+            font-weight: 600;
+            padding: 0.8rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 1rem;
+            margin-top: 1rem;
+            transition: background 0.3s ease;
+        }
+        .btn:hover {
+            background: #ffdd33;
+        }
+        .error {
+            color: #ff4d4d;
+            font-size: 0.85rem;
+            text-align: center;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>Admin Login</h2>
+        <form method="POST" action="/admin/login">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" name="email" id="email" placeholder="Enter admin email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" name="password" id="password" placeholder="Enter password" required>
+            </div>
+            {% if error %}
+            <p class="error">{{ error }}</p>
+            {% endif %}
+            <button type="submit" class="btn">Login</button>
+        </form>
+    </div>
+</body>
+</html>
